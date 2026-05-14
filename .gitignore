@@ -1,0 +1,10 @@
+node_modules/
+target/
+.anchor/
+.next/
+dist/
+coverage/
+.env
+*.log
+app/.next/
+app/node_modules/

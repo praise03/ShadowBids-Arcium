@@ -1,0 +1,42 @@
+{
+  "name": "shadowbid",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Privacy-preserving sealed-bid auctions on Solana with Arcium confidential compute.",
+  "scripts": {
+    "build": "yarn build:circuit && yarn build:program",
+    "build:circuit": "cd encrypted-ixs && cargo build",
+    "build:arcium": "arcium build",
+    "build:program": "anchor build",
+    "test": "arcium test",
+    "test:program": "anchor test --skip-local-validator",
+    "test:e2e": "yarn run ts-mocha -p ./tsconfig.json -t 120000 tests/e2e-blind-auction.spec.ts",
+    "test:e2e:mock": "yarn run ts-mocha -p ./tsconfig.json -t 120000 tests/e2e-blind-auction.mock.spec.ts",
+    "test:e2e:localnet": "yarn run ts-mocha -p ./tsconfig.json -t 120000 tests/e2e-localnet.spec.ts",
+    "test:e2e:compute": "yarn run ts-mocha -p ./tsconfig.json -t 300000 tests/e2e-compute-flow.spec.ts",
+    "localnet": "bash scripts/start-localnet.sh",
+    "localnet:stop": "bash scripts/start-localnet.sh stop",
+    "dev": "yarn workspace @shadowbid/app dev",
+    "lint": "yarn workspace @shadowbid/app lint",
+    "deploy:devnet": "anchor deploy --provider.cluster devnet"
+  },
+  "workspaces": [
+    "app"
+  ],
+  "dependencies": {
+    "@anchor-lang/core": "^1.0.1",
+    "@arcium-hq/client": "0.10.1",
+    "@coral-xyz/anchor": "^0.32.1",
+    "@solana/web3.js": "^1.98.4",
+    "bn.js": "^5.2.2"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.2.0",
+    "@types/chai": "^4.3.20",
+    "@types/mocha": "^10.0.10",
+    "chai": "^4.5.0",
+    "mocha": "^10.8.2",
+    "ts-mocha": "^10.0.0",
+    "typescript": "^5.9.3"
+  }
+}
