@@ -183,7 +183,7 @@ pub fn submit_bid_commitment_handler(
 }
 
 pub fn init_compute_winner_comp_def_handler(ctx: Context<InitComputeWinnerCompDef>) -> Result<()> {
-    init_computation_def(ctx.accounts, None)?;
+    init_comp_def(ctx.accounts, None, None)?;
     Ok(())
 }
 

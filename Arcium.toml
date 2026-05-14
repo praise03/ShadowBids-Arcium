@@ -6,3 +6,6 @@ nodes_ips = [
 ]
 localnet_timeout_secs = 120
 backends = ["Cerberus"]
+
+[clusters.devnet]
+offset = 456
