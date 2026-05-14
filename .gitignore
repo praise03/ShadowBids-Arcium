@@ -5,6 +5,14 @@ target/
 dist/
 coverage/
 .env
+.env.local
+.env.*.local
 *.log
+*keypair*
+*_keypair*
+wallet*
+devnet-wallet*
+artifacts/localnet/
 app/.next/
 app/node_modules/
+**/.env.local
