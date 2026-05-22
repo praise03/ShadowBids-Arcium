@@ -12,7 +12,12 @@ coverage/
 *_keypair*
 wallet*
 devnet-wallet*
+test-ledger/
+.localnet.pid
+.DS_Store
+**/.DS_Store
 artifacts/localnet/
 app/.next/
 app/node_modules/
 **/.env.local
+*.tsbuildinfo

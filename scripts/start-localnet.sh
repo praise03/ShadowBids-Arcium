@@ -50,12 +50,12 @@ patch_arx_configs() {
 
 ensure_artifacts() {
   local count
-  count=$(ls "$DIR"/artifacts/*.json 2>/dev/null | wc -l)
+  count=$(find "$DIR/artifacts" -maxdepth 1 -name '*.json' | wc -l)
   if [ "$count" -lt 40 ]; then
     echo "=== Generating artifacts (arcium test --skip-build) ==="
     rm -rf "$LEDGER"
     arcium test --skip-build 2>&1 || true
-    count=$(ls "$DIR"/artifacts/*.json 2>/dev/null | wc -l)
+    count=$(find "$DIR/artifacts" -maxdepth 1 -name '*.json' | wc -l)
     if [ "$count" -lt 40 ]; then
       echo "ERROR: Only $count artifacts generated (need 40+)"
       exit 1

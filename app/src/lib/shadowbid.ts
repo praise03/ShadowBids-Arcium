@@ -62,6 +62,7 @@ export const SEEDS = {
   result: Buffer.from("result"),
   bid: Buffer.from("bid"),
   userStats: Buffer.from("user-stats"),
+  signPda: Buffer.from("ArciumSignerAccount"),
 } as const;
 
 export function findAuctionPda(creator: PublicKey, id: anchor.BN, programId: PublicKey) {
@@ -85,6 +86,10 @@ export function findUserStatsPda(owner: PublicKey, programId: PublicKey) {
 
 export function findPlatformPda(programId: PublicKey) {
   return PublicKey.findProgramAddressSync([SEEDS.platform], programId);
+}
+
+export function findSignPda(programId: PublicKey) {
+  return PublicKey.findProgramAddressSync([SEEDS.signPda], programId);
 }
 
 export function getProgram(provider: anchor.AnchorProvider): anchor.Program<ShadowBid> {

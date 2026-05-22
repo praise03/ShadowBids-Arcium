@@ -6,12 +6,12 @@ import { expect } from "chai";
 
 describe("shadowbid arcium-native e2e scaffold", () => {
   it("exposes the native confidential-compute entrypoints in the generated artifacts", () => {
-    const circuitPath = path.resolve("encrypted-ixs/build/compute_winner.ts");
+    const circuitPath = path.resolve("build/compute_winner.ts");
     const deployPath = path.resolve("target/deploy/shadow_bid.so");
     const programSourcePath = path.resolve("programs/shadow_bid/src/lib.rs");
     const computeSourcePath = path.resolve("programs/shadow_bid/src/instructions/compute_winner.rs");
 
-    expect(fs.existsSync(circuitPath), "missing generated Arcium circuit artifact").to.equal(
+    expect(fs.existsSync(circuitPath), "missing canonical generated Arcium circuit artifact").to.equal(
       true,
     );
     expect(fs.existsSync(deployPath), "missing compiled Solana program").to.equal(true);

@@ -24,7 +24,7 @@ services:
         source: /Users/praise/Developer/Projects/Frontier/artifacts/localnet/td_master_seed.json
         target: /usr/trusted-dealer/master_seed.json
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:192.168.18.5"
     networks:
       arx_network:
         ipv4_address: 172.20.0.99
@@ -77,7 +77,7 @@ services:
         source: /Users/praise/Developer/Projects/Frontier/artifacts/public_inputs_node_0
         target: /usr/arx-node/public-inputs
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:192.168.18.5"
     networks:
       arx_network:
         ipv4_address: 172.20.0.100
@@ -130,7 +130,7 @@ services:
         source: /Users/praise/Developer/Projects/Frontier/artifacts/public_inputs_node_1
         target: /usr/arx-node/public-inputs
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:192.168.18.5"
     networks:
       arx_network:
         ipv4_address: 172.20.0.101
@@ -158,7 +158,7 @@ services:
         source: /Users/praise/Developer/Projects/Frontier/artifacts/localnet/recovery_node_x25519_0.json
         target: /usr/recovery-node/node-keys/node_x25519_keypair.json
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:192.168.18.5"
     
 
   recovery-node-1:
@@ -183,7 +183,7 @@ services:
         source: /Users/praise/Developer/Projects/Frontier/artifacts/localnet/recovery_node_x25519_1.json
         target: /usr/recovery-node/node-keys/node_x25519_keypair.json
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:192.168.18.5"
     
 
   recovery-node-2:
@@ -208,7 +208,7 @@ services:
         source: /Users/praise/Developer/Projects/Frontier/artifacts/localnet/recovery_node_x25519_2.json
         target: /usr/recovery-node/node-keys/node_x25519_keypair.json
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:192.168.18.5"
     
 
   recovery-node-3:
@@ -233,7 +233,7 @@ services:
         source: /Users/praise/Developer/Projects/Frontier/artifacts/localnet/recovery_node_x25519_3.json
         target: /usr/recovery-node/node-keys/node_x25519_keypair.json
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:192.168.18.5"
     
 
   recovery-node-4:
@@ -258,7 +258,7 @@ services:
         source: /Users/praise/Developer/Projects/Frontier/artifacts/localnet/recovery_node_x25519_4.json
         target: /usr/recovery-node/node-keys/node_x25519_keypair.json
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:192.168.18.5"
     
 
   recovery-node-5:
@@ -283,7 +283,7 @@ services:
         source: /Users/praise/Developer/Projects/Frontier/artifacts/localnet/recovery_node_x25519_5.json
         target: /usr/recovery-node/node-keys/node_x25519_keypair.json
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:192.168.18.5"
     
 
   recovery-node-6:
@@ -308,7 +308,7 @@ services:
         source: /Users/praise/Developer/Projects/Frontier/artifacts/localnet/recovery_node_x25519_6.json
         target: /usr/recovery-node/node-keys/node_x25519_keypair.json
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:192.168.18.5"
     
 
   recovery-node-7:
@@ -333,5 +333,5 @@ services:
         source: /Users/praise/Developer/Projects/Frontier/artifacts/localnet/recovery_node_x25519_7.json
         target: /usr/recovery-node/node-keys/node_x25519_keypair.json
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "host.docker.internal:192.168.18.5"
     

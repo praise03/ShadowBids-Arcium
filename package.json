@@ -5,7 +5,7 @@
   "description": "Privacy-preserving sealed-bid auctions on Solana with Arcium confidential compute.",
   "scripts": {
     "build": "yarn build:circuit && yarn build:program",
-    "build:circuit": "cd encrypted-ixs && cargo build",
+    "build:circuit": "arcium build --skip-program",
     "build:arcium": "arcium build",
     "build:program": "anchor build",
     "test": "arcium test",

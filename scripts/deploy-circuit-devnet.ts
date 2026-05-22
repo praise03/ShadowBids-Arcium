@@ -35,7 +35,7 @@ async function main() {
   // Derive LUT from MXE
   const arciumIdl = JSON.parse(readFileSync(join(process.cwd(), "node_modules/@arcium-hq/client/src/idl/arcium.json"), "utf-8"));
   const arciumProg = new anchor.Program(arciumIdl as anchor.Idl, prov);
-  const mxeAcc = await arciumProg.account.mxeAccount.fetch(mxePda);
+  const mxeAcc = await (arciumProg.account as any).mxeAccount.fetch(mxePda);
   const lutSlot = new anchor.BN((mxeAcc as any).lutOffsetSlot);
   const [lutAddr] = PublicKey.findProgramAddressSync(
     [mxePda.toBuffer(), lutSlot.toArrayLike(Buffer, "le", 8)], LUT_PROG,

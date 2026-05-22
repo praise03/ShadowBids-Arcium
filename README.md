@@ -103,8 +103,8 @@ The Solana program is deployed at the same address on all clusters (deterministi
 # Install dependencies
 yarn install
 
-# Build the Arcium circuit
-arcium build
+# Build the canonical Arcium circuit artifacts
+yarn build:circuit
 
 # Start localnet with Arcium nodes
 bash scripts/start-localnet.sh
@@ -114,7 +114,7 @@ cd app
 yarn dev
 ```
 
-Open `http://localhost:3000`, connect a Solflare wallet (set to localnet/devnet), and create an auction.
+Open `http://localhost:3000`, connect a Solflare wallet (set to localnet/devnet), and create an auction. Bid submission now uses real `@arcium-hq/client` encryption in the browser: wallet `signMessage` → x25519 key derivation → MXE pubkey handshake → `RescueCipher`.
 
 ### Run Tests
 
@@ -122,11 +122,11 @@ Open `http://localhost:3000`, connect a Solflare wallet (set to localnet/devnet)
 # Off-chain mock lifecycle tests
 yarn test:e2e:mock        # 3/3 passing
 
-# Full localnet E2E (requires localnet running)
-yarn test:e2e:localnet    # 5/6 passing
+# Full localnet E2E (requires validator + Arcium localnet running)
+yarn test:e2e:localnet
 
 # Compute flow integration test
-yarn test:e2e:compute     # 3/3 passing
+yarn test:e2e:compute
 ```
 
 ---
@@ -136,11 +136,11 @@ yarn test:e2e:compute     # 3/3 passing
 | Suite | Description | Result |
 |-------|-------------|--------|
 | Mock lifecycle | Deterministic off-chain mock flow | ✅ 3/3 |
-| Localnet E2E | Create, bid, close, reject on local validator | ✅ 5/6 |
-| Compute flow | Circuit deploy, comp def, trigger, computation | ✅ 3/3 |
+| Localnet E2E | Create, encrypt bid, close, reject on local validator | Requires running validator |
+| Compute flow | Circuit deploy, comp def, trigger, computation | Requires running Arcium localnet |
 | Artifact scaffold | Arcium artifact generation check | ✅ 1/1 |
 
-The compute flow test verifies: platform initialization, computation definition creation with circuit deployment, auction lifecycle (create → bid × 8 → close → queue computation), and computation triggering. Auction status advances to `finalizing`. Full MPC callback delivery works with `arcium test -c devnet` where the Arcium node infrastructure handles the versioned-transaction callback.
+The compute flow test verifies: platform initialization, computation definition creation with circuit deployment, auction lifecycle (create → encrypted bid × 8 → close → queue computation), and Arcium finalization through the callback path.
 
 ---
 
@@ -150,7 +150,7 @@ The compute flow test verifies: platform initialization, computation definition 
 - **Confidential winner computation** via Arcium MPC network
 - **Strict lifecycle states**: `upcoming → live → closed → finalizing → finalized`
 - **Reserve-not-met** and **earliest-bid tiebreaker** handling
-- **Frontend** with auction browse, create, bid, portfolio, and leaderboard pages
+- **Frontend** with auction browse, create, encrypted bid submission, close, compute-trigger, portfolio, and leaderboard pages
 - **Wallet adapter** (Solflare) connected to devnet/localnet
 
 ---
@@ -171,7 +171,7 @@ The compute flow test verifies: platform initialization, computation definition 
 - Full MPC finalization requires Arcium nodes to process the callback; on devnet this needs the Arcium testnet infrastructure. The localnet Docker setup demonstrates the complete flow.
 - The `compute_winner` circuit is compiled for `MAX_BIDS = 8`; production deployments should segment or batch larger auctions.
 - SPL token escrow (`SplTokenScaffold` settlement mode) is scaffolded in the program but not wired in the frontend.
-- The frontend submits bids with placeholder encrypted data; real Arcium client encryption (`@arcium-hq/client` RescueCipher + x25519) is being integrated.
+- The fixed-width Arcium circuit currently pads auctions with fewer than 8 bids by repeating existing sealed bid accounts at queue time. This preserves today’s demoability but should be replaced with an explicit invalid-bid padding strategy before production.
 
 ---
 
@@ -201,7 +201,7 @@ The compute flow test verifies: platform initialization, computation definition 
 
 ## Submission Notes
 
-This project is still a work in progress and i'm still trying to figure out some thing so periodic update might be made to it:
+This project is still a work in progress and periodic updates may still land:
 
 - **Deep Arcium integration** using Anchor macros (`#[arcium_program]`, `#[callback_accounts]`, `#[arcium_callback]`), custom circuit compilation, and on-chain circuit buffer deployment.
 - **Production-quality Solana program** with proper account validation, error handling, status machines, and comprehensive test coverage.

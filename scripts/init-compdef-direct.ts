@@ -30,7 +30,7 @@ async function main() {
     return;
   }
 
-  const mxeAcc = await prog.account.mxeAccount.fetch(mxePda);
+  const mxeAcc = await (prog.account as any).mxeAccount.fetch(mxePda);
   const lutSlot = new anchor.BN((mxeAcc as any).lutOffsetSlot);
   const [lutAddr] = PublicKey.findProgramAddressSync(
     [mxePda.toBuffer(), lutSlot.toArrayLike(Buffer, "le", 8)],

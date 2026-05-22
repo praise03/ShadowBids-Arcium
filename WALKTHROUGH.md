@@ -1,6 +1,6 @@
 # ShadowBid Developer Walkthrough
 
-This walkthrough gets a new developer from zero to a running ShadowBid demo.
+This walkthrough gets a new developer from zero to a running ShadowBid project.
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ solana config set --url localhost
 solana-keygen new --no-bip39-passphrase --force
 ```
 
-Expected output: npm installs workspace dependencies, and Solana CLI points at localhost.
+Expected output: workspace dependencies install, and Solana CLI points at localhost.
 
 ## Local Validator
 
@@ -37,26 +37,29 @@ Expected output: the validator prints an RPC URL at `http://127.0.0.1:8899`.
 ## Program Build
 
 ```bash
-yarn build:arcium
+yarn build:circuit
+anchor build
 ```
 
-Expected output: Arcium rebuilds the encrypted instruction interface when needed, compiles the native `shadow_bid` program, and syncs the declared program id automatically.
+Expected output: `yarn build:circuit` regenerates the canonical root `build/` artifacts from `encrypted-ixs/src/lib.rs`, and `anchor build` compiles the native `shadow_bid` program.
 
 ## Program Tests
 
 ```bash
 yarn test:e2e
-```
-
-Expected output: the artifact-level native-path scaffold passes, and the real localnet flow is skipped unless you explicitly enable it with `SHADOWBID_RUN_REAL_E2E=1`.
-
-If you do not have a validator running, use the deterministic mock:
-
-```bash
 yarn test:e2e:mock
 ```
 
-Expected output: three passing tests for happy path, reserve-not-met, and tie-break behavior.
+Expected output: the artifact-level native-path scaffold passes, and the deterministic mock flow passes.
+
+If you have a validator and Arcium localnet running, use the real suites:
+
+```bash
+yarn test:e2e:localnet
+yarn test:e2e:compute
+```
+
+Expected output: localnet and compute tests submit real encrypted bid payloads and exercise the on-chain Arcium path.
 
 ## Real Arcium Path
 
@@ -73,11 +76,13 @@ Key native pieces to look for:
 - `#[arcium_callback(encrypted_ix = "compute_winner")]`
 - `output.verify_output(...)`
 
-To extend the current scaffold into a true localnet E2E, add:
+Current real-path coverage already includes:
 - MXE public key fetching with retry
 - x25519 key agreement
 - `RescueCipher` encryption with fresh nonces
 - matching `ArgBuilder` ordering for every `Enc<Shared, ...>` parameter
+
+The main remaining limitation is operational: Arcium nodes/local validator/devnet funding must be available for the full callback loop to complete.
 
 ## Frontend
 
@@ -91,7 +96,7 @@ Open the app, connect Solflare on devnet, and walk through:
 
 1. `/` shows the auction desk.
 2. `/auctions` shows filters and auction cards.
-3. `/auctions/validator-seat` shows bid, lifecycle, privacy, and result panels.
+3. `/auctions/<auction-pubkey>` shows bid, lifecycle, privacy, close, compute-trigger, and result panels.
 4. `/create` shows the creator flow.
 5. `/portfolio` and `/leaderboard` show reputation-lite state.
 
@@ -100,5 +105,7 @@ Open the app, connect Solflare on devnet, and walk through:
 - `arcium: command not found`: install Arcium CLI and restart your shell.
 - `Account not initialized`: run `initialize_platform` before auction instructions.
 - `AuctionStillLive`: wait until `end_time` or create a shorter test auction.
-- `Missing real E2E run`: export `SHADOWBID_RUN_REAL_E2E=1` only after local Arcium infra is live.
+- `No validator on 127.0.0.1:8899`: start `solana-test-validator` or `bash scripts/start-localnet.sh`.
+- `MXE public key unavailable`: wait for the local Arcium nodes to finish booting, then retry.
+- `Auction has fewer than 8 bids`: the UI pads remaining bid slots during compute queueing, but production code should replace this with explicit invalid-bid padding.
 - Frontend wallet modal missing styles: confirm `@solana/wallet-adapter-react-ui/styles.css` is imported.

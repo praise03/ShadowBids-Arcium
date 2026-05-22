@@ -18,7 +18,7 @@ async function main() {
   const prog = new anchor.Program(IDL as anchor.Idl, prov);
 
   const [mxePda] = PublicKey.findProgramAddressSync([Buffer.from("MXEAccount"), SB.toBuffer()], ARCIUM);
-  const mxe = await prog.account.mxeAccount.fetch(mxePda);
+  const mxe = await (prog.account as any).mxeAccount.fetch(mxePda);
   console.log("MXE status:", JSON.stringify(mxe.status));
   console.log("cluster:", mxe.cluster);
   console.log("keygenOffset:", mxe.keygenOffset.toString());

@@ -7,11 +7,57 @@ import { PublicKey } from "@solana/web3.js";
 import {
   getProgram,
   findResultPda,
+  findSignPda,
   findUserStatsPda,
   PROGRAM_ID,
   type AuctionData,
   type AuctionResultData,
 } from "./shadowbid";
+import {
+  buildBidCommitment,
+  encryptBidForSubmission,
+  getArciumProgram,
+  getClockAccAddress,
+  getClusterAccAddress,
+  getCompDefAccAddress,
+  getCompDefAccOffset,
+  getComputationAccAddress,
+  getExecutingPoolAccAddress,
+  getFeePoolAccAddress,
+  getMXEAccAddress,
+  getMempoolAccAddress,
+} from "./arcium";
+
+const MAX_BIDS = 8;
+
+function clusterOffsetToNumber(cluster: unknown): number {
+  if (typeof cluster === "number") return cluster;
+  if (typeof cluster === "bigint") return Number(cluster);
+  if (
+    cluster &&
+    typeof cluster === "object" &&
+    "toNumber" in cluster &&
+    typeof (cluster as { toNumber: () => number }).toNumber === "function"
+  ) {
+    return (cluster as { toNumber: () => number }).toNumber();
+  }
+  throw new Error("Unable to determine the Arcium cluster offset for this MXE account.");
+}
+
+function padBidAccounts(bidAccounts: PublicKey[]): PublicKey[] {
+  if (bidAccounts.length === 0) {
+    throw new Error("At least one sealed bid is required before confidential compute can run.");
+  }
+  if (bidAccounts.length > MAX_BIDS) {
+    throw new Error(`ShadowBid currently supports up to ${MAX_BIDS} bids per auction.`);
+  }
+
+  const padded = [...bidAccounts];
+  while (padded.length < MAX_BIDS) {
+    padded.push(padded[padded.length - 1]);
+  }
+  return padded;
+}
 
 function useProgram() {
   const { connection } = useConnection();
@@ -62,6 +108,27 @@ export function useAuction(auctionPk: PublicKey | null) {
   const [result, setResult] = useState<AuctionResultData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const refresh = useCallback(async () => {
+    if (!auctionPk) return;
+    const pk = auctionPk;
+    try {
+      const [a, r] = await Promise.all([
+        program.account.auction.fetch(pk),
+        program.account.auctionResult
+          .fetch(findResultPda(pk, PROGRAM_ID)[0])
+          .catch(() => null),
+      ]);
+      setAuction({ ...a, pubkey: pk } as unknown as AuctionData);
+      setResult(
+        r ? ({ ...r, pubkey: findResultPda(pk, PROGRAM_ID)[0] } as unknown as AuctionResultData) : null,
+      );
+    } catch {
+      setAuction(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [auctionPk, program]);
+
   useEffect(() => {
     if (!auctionPk) return;
     let cancelled = false;
@@ -96,7 +163,7 @@ export function useAuction(auctionPk: PublicKey | null) {
     };
   }, [program, auctionPk]);
 
-  return { auction, result, loading };
+  return { auction, result, loading, refresh };
 }
 
 export function useCreateAuction() {
@@ -151,59 +218,38 @@ export function useCreateAuction() {
 
 export function useSubmitBid() {
   const program = useProgram();
-  const { publicKey } = useWallet();
+  const wallet = useWallet();
+  const { publicKey } = wallet;
   const [pending, setPending] = useState(false);
-
-  async function sha256Hash(...parts: (Uint8Array | string)[]): Promise<Uint8Array> {
-    const encoder = new TextEncoder();
-    const encoded = parts.map((p) => typeof p === "string" ? encoder.encode(p) : p);
-    const totalLen = encoded.reduce((s, b) => s + b.byteLength, 0);
-    const combined = new Uint8Array(totalLen);
-    let offset = 0;
-    for (const b of encoded) {
-      combined.set(b, offset);
-      offset += b.byteLength;
-    }
-    const hash = await crypto.subtle.digest("SHA-256", combined);
-    return new Uint8Array(hash);
-  }
-
-  function placeholder32(v: number): number[] {
-    const buf = new Uint8Array(32);
-    const view = new DataView(buf.buffer);
-    view.setUint32(28, v, true);
-    buf[0] ^= 0x80;
-    return Array.from(buf);
-  }
 
   const submit = useCallback(
     async (args: { auction: PublicKey; amount: number }) => {
       if (!publicKey) throw new Error("Wallet not connected");
       setPending(true);
       try {
-        const salt = crypto.getRandomValues(new Uint8Array(16));
-        const commitment = await sha256Hash(
-          "shadowbid:v1",
-          args.auction.toBytes(),
-          publicKey.toBytes(),
-          args.amount.toString(),
-          salt,
+        const amount = BigInt(args.amount);
+        const commitment = await buildBidCommitment(
+          args.auction,
+          publicKey,
+          amount,
         );
-
-        const nonce = new anchor.BN(
-          Array.from(crypto.getRandomValues(new Uint8Array(16))),
-        );
+        const encryptedBid = await encryptBidForSubmission({
+          wallet,
+          programId: program.programId,
+          bidder: publicKey,
+          amount,
+        });
 
         const tx = await program.methods
           .submitBidCommitment(
-            Array.from(commitment),
-            Array.from(crypto.getRandomValues(new Uint8Array(32))),
-            nonce,
-            placeholder32(args.amount),
-            placeholder32(args.amount),
-            placeholder32(args.amount),
-            placeholder32(args.amount),
-            placeholder32(1),
+            commitment,
+            encryptedBid.bidderX25519Pubkey,
+            encryptedBid.nonce,
+            encryptedBid.encryptedBidderLo,
+            encryptedBid.encryptedBidderHi,
+            encryptedBid.encryptedAmount,
+            encryptedBid.encryptedSubmittedAt,
+            encryptedBid.encryptedValid,
           )
           .accounts({
             bidder: publicKey,
@@ -216,10 +262,125 @@ export function useSubmitBid() {
         setPending(false);
       }
     },
-    [program, publicKey],
+    [program, publicKey, wallet],
   );
 
   return { submit, pending };
+}
+
+export function useCloseBidding() {
+  const program = useProgram();
+  const { publicKey } = useWallet();
+  const [pending, setPending] = useState(false);
+
+  const close = useCallback(async (auction: PublicKey) => {
+    if (!publicKey) throw new Error("Wallet not connected");
+    setPending(true);
+    try {
+      return await program.methods
+        .closeBidding()
+        .accounts({
+          closer: publicKey,
+          auction,
+        })
+        .rpc();
+    } finally {
+      setPending(false);
+    }
+  }, [program, publicKey]);
+
+  return { close, pending };
+}
+
+export function useTriggerConfidentialCompute() {
+  const program = useProgram();
+  const { publicKey } = useWallet();
+  const [pending, setPending] = useState(false);
+
+  const trigger = useCallback(async (auction: PublicKey) => {
+    if (!publicKey) throw new Error("Wallet not connected");
+
+    setPending(true);
+    try {
+      const provider = program.provider as anchor.AnchorProvider;
+      const arciumProgram = getArciumProgram(provider);
+      const mxeAccountAddress = getMXEAccAddress(program.programId);
+      const mxeAccount = await (arciumProgram.account as any).mxeAccount.fetch(
+        mxeAccountAddress,
+      );
+      if (mxeAccount.cluster === null) {
+        throw new Error("This MXE account is not assigned to an Arcium cluster yet.");
+      }
+
+      const clusterOffset = clusterOffsetToNumber(mxeAccount.cluster);
+      const computationOffset = new anchor.BN(Date.now());
+      const compDefOffset = getCompDefAccOffset("compute_winner");
+      const [result] = findResultPda(auction, program.programId);
+      const [signPda] = findSignPda(program.programId);
+      const allBidAccounts = await program.account.bidCommitment.all();
+      const bidAccounts = allBidAccounts
+        .filter((account) => account.account.auction.equals(auction))
+        .map((account) => account.publicKey);
+      const paddedBidAccounts = padBidAccounts(bidAccounts);
+
+      return await program.methods
+        .triggerConfidentialCompute(computationOffset)
+        .accountsPartial({
+          payer: publicKey,
+          signPdaAccount: signPda,
+          auction,
+          result,
+          mxeAccount: mxeAccountAddress,
+          mempoolAccount: getMempoolAccAddress(clusterOffset),
+          executingPool: getExecutingPoolAccAddress(clusterOffset),
+          computationAccount: getComputationAccAddress(
+            clusterOffset,
+            computationOffset,
+          ),
+          compDefAccount: getCompDefAccAddress(program.programId, compDefOffset),
+          clusterAccount: getClusterAccAddress(clusterOffset),
+          poolAccount: getFeePoolAccAddress(),
+          clockAccount: getClockAccAddress(),
+          arciumProgram: arciumProgram.programId,
+        })
+        .remainingAccounts(
+          paddedBidAccounts.map((pubkey) => ({
+            pubkey,
+            isWritable: false,
+            isSigner: false,
+          })),
+        )
+        .rpc({ skipPreflight: true, commitment: "confirmed" });
+    } finally {
+      setPending(false);
+    }
+  }, [program, publicKey]);
+
+  return { trigger, pending };
+}
+
+export function useMarkSettlementCompleted() {
+  const program = useProgram();
+  const { publicKey } = useWallet();
+  const [pending, setPending] = useState(false);
+
+  const markSettled = useCallback(async (auction: PublicKey) => {
+    if (!publicKey) throw new Error("Wallet not connected");
+    setPending(true);
+    try {
+      return await program.methods
+        .markSettlementCompleted()
+        .accounts({
+          creator: publicKey,
+          auction,
+        })
+        .rpc();
+    } finally {
+      setPending(false);
+    }
+  }, [program, publicKey]);
+
+  return { markSettled, pending };
 }
 
 export function useUserStats() {
@@ -265,4 +426,47 @@ export function useUserStats() {
   }, [program, publicKey]);
 
   return { stats, loading };
+}
+
+export function useLeaderboard() {
+  const program = useProgram();
+  const [rows, setRows] = useState<Array<{
+    owner: PublicKey;
+    auctionsCreated: number;
+    bidsPlaced: number;
+    wins: number;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    try {
+      const accounts = await program.account.userStats.all();
+      setRows(
+        accounts
+          .map((account) => ({
+            owner: account.account.owner as PublicKey,
+            auctionsCreated: account.account.auctionsCreated as number,
+            bidsPlaced: account.account.bidsPlaced as number,
+            wins: account.account.wins as number,
+          }))
+          .sort((left, right) => {
+            if (right.wins !== left.wins) return right.wins - left.wins;
+            if (right.auctionsCreated !== left.auctionsCreated) {
+              return right.auctionsCreated - left.auctionsCreated;
+            }
+            return right.bidsPlaced - left.bidsPlaced;
+          }),
+      );
+    } catch {
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [program]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { rows, loading, refresh };
 }

@@ -1,7 +1,13 @@
 "use client";
 
 import { StatusBadge } from "@/components/status-badge";
-import { useAuction, useSubmitBid } from "@/lib/hooks";
+import {
+  useAuction,
+  useCloseBidding,
+  useMarkSettlementCompleted,
+  useSubmitBid,
+  useTriggerConfidentialCompute,
+} from "@/lib/hooks";
 import { toUiAuctionDetail, shortPubkey } from "@/lib/auctions";
 import { CheckCircle2, Clock3, LockKeyhole, RadioTower, Send } from "lucide-react";
 import { PublicKey } from "@solana/web3.js";
@@ -13,9 +19,14 @@ export default function AuctionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const wallet = useWallet();
   const auctionPk = id ? new PublicKey(id) : null;
-  const { auction, result, loading } = useAuction(auctionPk);
+  const { auction, result, loading, refresh } = useAuction(auctionPk);
   const { submit, pending: submitting } = useSubmitBid();
+  const { close, pending: closing } = useCloseBidding();
+  const { trigger, pending: triggering } = useTriggerConfidentialCompute();
+  const { markSettled, pending: settling } = useMarkSettlementCompleted();
   const [bidAmount, setBidAmount] = useState("");
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   if (loading) return <p className="text-fog/50">Loading auction...</p>;
   if (!auction) return <p className="text-signal">Auction not found.</p>;
@@ -26,10 +37,53 @@ export default function AuctionDetailPage() {
   const handleBid = async () => {
     if (!auctionPk || !bidAmount || !wallet.connected) return;
     try {
-      await submit({ auction: auctionPk, amount: parseInt(bidAmount, 10) });
+      setError(null);
+      const tx = await submit({ auction: auctionPk, amount: parseInt(bidAmount, 10) });
       setBidAmount("");
+      setFeedback(`Encrypted bid submitted: ${tx}`);
+      await refresh();
     } catch (e) {
       console.error("Bid failed", e);
+      setError(e instanceof Error ? e.message : "Bid submission failed.");
+    }
+  };
+
+  const handleClose = async () => {
+    if (!auctionPk) return;
+    try {
+      setError(null);
+      const tx = await close(auctionPk);
+      setFeedback(`Bidding closed: ${tx}`);
+      await refresh();
+    } catch (e) {
+      console.error("Close failed", e);
+      setError(e instanceof Error ? e.message : "Close bidding failed.");
+    }
+  };
+
+  const handleTrigger = async () => {
+    if (!auctionPk) return;
+    try {
+      setError(null);
+      const tx = await trigger(auctionPk);
+      setFeedback(`Confidential compute queued: ${tx}`);
+      await refresh();
+    } catch (e) {
+      console.error("Trigger failed", e);
+      setError(e instanceof Error ? e.message : "Failed to queue confidential compute.");
+    }
+  };
+
+  const handleSettlement = async () => {
+    if (!auctionPk) return;
+    try {
+      setError(null);
+      const tx = await markSettled(auctionPk);
+      setFeedback(`Settlement marked complete: ${tx}`);
+      await refresh();
+    } catch (e) {
+      console.error("Settlement failed", e);
+      setError(e instanceof Error ? e.message : "Failed to mark settlement complete.");
     }
   };
 
@@ -100,6 +154,37 @@ export default function AuctionDetailPage() {
               </p>
             </>
           )}
+          {feedback && <p className="mt-3 break-all text-xs text-mint">{feedback}</p>}
+          {error && <p className="mt-3 text-xs text-signal">{error}</p>}
+        </div>
+        <div className="rounded-lg border border-white/10 bg-panel/80 p-5">
+          <h2 className="font-black">Auction actions</h2>
+          <div className="mt-4 grid gap-3">
+            <button
+              onClick={handleClose}
+              disabled={!wallet.connected || closing || !(ui.status === "live" || ui.status === "upcoming")}
+              className="rounded-md border border-white/10 px-4 py-3 font-bold text-fog disabled:opacity-40"
+            >
+              {closing ? "Closing..." : "Close bidding"}
+            </button>
+            <button
+              onClick={handleTrigger}
+              disabled={!wallet.connected || triggering || ui.status !== "closed"}
+              className="rounded-md border border-brass/30 bg-brass/10 px-4 py-3 font-bold text-brass disabled:opacity-40"
+            >
+              {triggering ? "Queueing..." : "Trigger confidential compute"}
+            </button>
+            <button
+              onClick={handleSettlement}
+              disabled={!wallet.connected || settling || ui.status !== "finalized"}
+              className="rounded-md border border-mint/20 bg-mint/10 px-4 py-3 font-bold text-mint disabled:opacity-40"
+            >
+              {settling ? "Marking..." : "Mark settlement complete"}
+            </button>
+            <p className="text-xs leading-5 text-fog/55">
+              ShadowBid’s Arcium circuit has a fixed width of 8 bids. When fewer bids exist, the client pads the queue with duplicate sealed bid accounts so the real confidential compute flow can still finalize.
+            </p>
+          </div>
         </div>
         <div className="rounded-lg border border-white/10 bg-panel/80 p-5">
           <h2 className="font-black">Result</h2>
